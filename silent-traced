@@ -1,0 +1,112 @@
+------- // .gg/traced \\ -------
+
+
+local SilentAim = {
+    Enabled = true,
+    Part = "HumanoidRootPart",
+    Keybind = "Q",
+    KOCheck = false,
+    Prediction = 0,
+    FOVSettings = {
+        Visible = true,
+        Transparency = 1,
+        Filled = false,
+        Radius = 100 
+    },
+}
+
+-- // Services \ --
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+
+-- // Utility Functions \ --
+local function K_OCheck(Plr) -- // YES i DID take this😹 \\ --
+    local Dead = false
+    if Plr and Plr.Character and SilentAim.KOCheck then
+        if Plr.Character:FindFirstChild("BodyEffects") then
+            if Plr.Character.BodyEffects:FindFirstChild("K.O") then
+                Dead = Plr.Character.BodyEffects["K.O"].Value
+            elseif Plr.Character.BodyEffects:FindFirstChild("KO") then
+                Dead = Plr.Character.BodyEffects.KO.Value
+            end
+        end
+    end
+    return Dead
+end
+
+-- // Drawing Objects \ --
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = SilentAim.FOVSettings.Visible
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Transparency = SilentAim.FOVSettings.Transparency
+FOVCircle.Thickness = 2.5
+FOVCircle.Filled = SilentAim.FOVSettings.Filled
+FOVCircle.NumSides = 100
+FOVCircle.Radius = SilentAim.FOVSettings.Radius
+
+RunService.RenderStepped:Connect(function()
+    local MousePos = UserInputService:GetMouseLocation()
+    FOVCircle.Position = Vector2.new(MousePos.X, MousePos.Y)
+end)
+
+
+local function GetClosestPlayer()
+    local MaxDist = SilentAim.FOVSettings.Radius
+    local Target = nil
+    
+    local fovPosition = FOVCircle.Position
+    
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild(SilentAim.Part) then            
+            local ScreenPos, Visible = Camera:WorldToScreenPoint(v.Character[SilentAim.Part].Position)
+            if not Visible then continue end
+            
+            if K_OCheck(v) then continue end
+            
+            local Distance = (Vector2.new(fovPosition.X, fovPosition.Y) - Vector2.new(ScreenPos.X, ScreenPos.Y)).Magnitude
+            if Distance < MaxDist then
+                MaxDist = Distance
+                Target = v
+            end
+        end
+    end
+    return Target
+end
+
+-- // Mouse Hook \ --  
+local grm = getrawmetatable(game)
+local index = nil
+setreadonly(grm, false)
+index = grm.__index
+
+grm.__index = function(self, Index)
+    if not checkcaller() and self == Mouse then
+        if Index == "Hit" then
+            local EndPoint = GetClosestPlayer()
+            if EndPoint and EndPoint.Character then
+                local TargetPart = EndPoint.Character[SilentAim.Part]
+                local TargetPos = TargetPart.Position
+                local TargetVel = TargetPart.Velocity
+                
+                local PredictedPosition = TargetPos + (TargetVel * SilentAim.Prediction)
+                return CFrame.new(PredictedPosition)
+            end
+        elseif Index == "Target" and game.PlaceId == 2788229376 then
+            local EndPoint = GetClosestPlayer()
+            if EndPoint and EndPoint.Character then
+                local TargetPart = EndPoint.Character[SilentAim.Part]
+                local TargetPos = TargetPart.Position
+                local TargetVel = TargetPart.Velocity
+                
+                local PredictedPosition = TargetPos + (TargetVel * SilentAim.Prediction)
+                return CFrame.new(PredictedPosition)
+            end
+        end
+    end
+    return index(self, Index)
+end
